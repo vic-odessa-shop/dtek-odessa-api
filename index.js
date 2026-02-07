@@ -1,50 +1,55 @@
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
+const cloudscraper = require('cloudscraper');
 const app = express();
 
 app.use(cors());
 
+// Вспомогательная функция для запросов через "обходчик"
+const scrapper = (url) => {
+    return new Promise((resolve, reject) => {
+        cloudscraper.get(url, (error, response, body) => {
+            if (error) reject(error);
+            else resolve(JSON.parse(body));
+        });
+    });
+};
+
 app.get('/check', async (req, res) => {
     const { street, house } = req.query;
-    console.log(`--- ЗАПРОС: ${street}, ${house} ---`);
+    console.log(`--- ПОПЫТКА ОБХОДА: ${street}, ${house} ---`);
 
     try {
-        // Используем прокси для обхода блокировки по IP
-        const proxy = "https://api.allorigins.win/get?url=";
+        // 1. Поиск улицы
+        const streetUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-streets?city=Одеса&query=${encodeURIComponent(street)}`;
+        const streets = await scrapper(streetUrl);
         
-        // 1. Ищем улицу
-        const urlStreet = encodeURIComponent(`https://www.dtek-oem.com.ua/ua/ajax/get-streets?city=Одеса&query=${street}`);
-        const streetRes = await axios.get(`${proxy}${urlStreet}`);
-        const streets = JSON.parse(streetRes.data.contents);
-
-        if (!streets || !streets[0]) return res.json({ status: 'error', message: 'Улица не найдена' });
+        if (!streets[0]) return res.json({ status: 'error', message: 'Улица не найдена' });
         const streetId = streets[0].id;
 
-        // 2. Ищем дом
-        const urlHouse = encodeURIComponent(`https://www.dtek-oem.com.ua/ua/ajax/get-houses?street=${streetId}&query=${house}`);
-        const houseRes = await axios.get(`${proxy}${urlHouse}`);
-        const houses = JSON.parse(houseRes.data.contents);
-
-        if (!houses || !houses[0]) return res.json({ status: 'error', message: 'Дом не найден' });
+        // 2. Поиск дома
+        const houseUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-houses?street=${streetId}&query=${encodeURIComponent(house)}`;
+        const houses = await scrapper(houseUrl);
+        
+        if (!houses[0]) return res.json({ status: 'error', message: 'Дом не найден' });
         const houseId = houses[0].id;
 
-        // 3. Получаем график
-        const urlSchedule = encodeURIComponent(`https://www.dtek-oem.com.ua/ua/ajax/get-schedule?house=${houseId}`);
-        const scheduleRes = await axios.get(`${proxy}${urlSchedule}`);
-        const schedule = JSON.parse(scheduleRes.data.contents);
+        // 3. Получение графика
+        const scheduleUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-schedule?house=${houseId}`;
+        const schedule = await scrapper(scheduleUrl);
 
         if (schedule && schedule.html) {
+            console.log("ПРОРВАЛИСЬ! График получен.");
             res.json({ status: 'success', html: schedule.html });
         } else {
-            res.json({ status: 'error', message: 'График пуст' });
+            res.json({ status: 'error', message: 'ДТЭК прислал пустой ответ' });
         }
 
     } catch (e) {
-        console.log("ОШИБКА:", e.message);
-        res.status(500).json({ status: 'error', message: 'Ошибка прокси. Попробуйте еще раз.' });
+        console.log("ОШИБКА ОБХОДА:", e.message);
+        res.json({ status: 'error', message: 'Защита ДТЭК слишком сильная. Попробуйте через 5 минут.' });
     }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server started`));
+app.listen(PORT, () => console.log(`Bypass server running`));
