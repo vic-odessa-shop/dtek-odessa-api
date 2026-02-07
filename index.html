@@ -55,21 +55,21 @@
 
         async function checkStatus(index, street, house) {
             const container = document.getElementById(`status-${index}`);
-            container.innerHTML = "⌛ Загрузка...";
             
-            try {
-                const res = await fetch(`${API_URL}/check?street=${encodeURIComponent(street)}&house=${encodeURIComponent(house)}`);
-                const result = await res.json();
-                
-                if(result.status === 'success') {
-                    container.innerHTML = result.html; 
-                } else {
-                    container.innerHTML = "❌ " + result.message;
-                }
-            } catch (e) {
-                container.innerHTML = "😴 Сервер спит. Подождите 30 сек...";
-            }
+            // Мы не можем легко вытащить график из-за блокировок, 
+            // поэтому открываем официальный виджет ДТЭК для этого адреса
+            container.innerHTML = `
+                <div style="margin-top:10px;">
+                    <p style="font-size:0.8em; color:gray;">Нажмите кнопку ниже, чтобы открыть график на сайте ДТЭК:</p>
+                    <a href="https://www.dtek-oem.com.ua/ua/shutdowns" target="_blank" 
+                       style="display:block; padding:10px; background:#ffc107; color:black; text-align:center; text-decoration:none; border-radius:8px; font-weight:bold;">
+                       Открыть официальный график
+                    </a>
+                    <p style="font-size:0.7em; color:red; margin-top:5px;">* Введите улицу "${street}" на сайте ДТЭК</p>
+                </div>
+            `;
         }
+
 
         function render() {
             const listDiv = document.getElementById('list');
