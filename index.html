@@ -5,20 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Свет (Одесса)</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .addr-title { font-weight: bold; display: flex; justify-content: space-between; }
-        .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; }
-        .res-box { margin-top: 10px; padding: 10px; border-radius: 8px; background: #f8f9fa; }
-        .btn-direct { display: block; width: 100%; padding: 12px; background: #28a745; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold; border: none; }
+        .addr-title { font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .delete { color: #ff4d4d; font-size: 0.8em; cursor: pointer; }
+        .action-box { margin-top: 10px; background: #eef2f7; padding: 10px; border-radius: 8px; }
+        .btn-copy { background: #6c757d; margin-bottom: 8px; width: 100%; }
+        .btn-site { background: #28a745; text-decoration: none; display: block; text-align: center; color: white; padding: 12px; border-radius: 8px; font-weight: bold; }
+        .hint { font-size: 0.75em; color: #666; margin-top: 8px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h3>Добавить адрес</h3>
+        <h3>Добавить адрес (Одесса)</h3>
         <input type="text" id="st" placeholder="Улица (Люстдорфська дорога)">
         <input type="text" id="hs" placeholder="Дом (189)">
         <button onclick="add()">Сохранить адрес</button>
@@ -27,60 +29,56 @@
     <div id="list"></div>
 
     <script>
-        const API_URL = "https://dtek-odessa.onrender.com";
-        let addresses = JSON.parse(localStorage.getItem('dtek_multi_v4')) || [];
+        let addresses = JSON.parse(localStorage.getItem('dtek_odessa_v5')) || [];
 
         function render() {
             const listDiv = document.getElementById('list');
-            listDiv.innerHTML = addresses.map((addr, i) => `
+            listDiv.innerHTML = addresses.map((addr, i) => {
+                // ФОРМИРУЕМ ПОЛНЫЙ АДРЕС С ГОРОДОМ
+                const fullAddress = `Одеса, ${addr.s} ${addr.h}`;
+                
+                return `
                 <div class="card">
                     <div class="addr-title">
                         📍 ${addr.s}, ${addr.h}
                         <span class="delete" onclick="remove(${i})">Удалить</span>
                     </div>
-                    <div id="res-${i}" class="res-box">
-                        <button onclick="check(${i}, '${addr.s}', '${addr.h}')">Проверить</button>
+                    <div class="action-box">
+                        <button class="btn-copy" onclick="copyToClipboard('${fullAddress}', this)">
+                            📋 Копировать с городом
+                        </button>
+                        
+                        <form action="https://www.dtek-oem.com.ua/ua/shutdowns" method="GET" target="_blank">
+                            <input type="hidden" name="query" value="${fullAddress}">
+                            <button type="submit" class="btn-site" style="border:none; width:100%;">
+                               🚀 Перейти на ДТЭК
+                            </button>
+                        </form>
+                        <p class="hint">Кнопка "Перейти" вставит адрес в поиск, если ДТЭК позволит. Если нет — просто "Вставь" скопированное.</p>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
-        async function check(i, s, h) {
-            const box = document.getElementById(`res-${i}`);
-            box.innerHTML = "⌛ Пытаюсь загрузить напрямую...";
-
-            try {
-                const response = await fetch(`${API_URL}/check?street=${encodeURIComponent(s)}&house=${encodeURIComponent(h)}`);
-                const result = await response.json();
-
-                if (result.status === 'success') {
-                    box.innerHTML = result.html; // Если Render вдруг сработал
-                } else {
-                    showDirectButton(box, s, h); // Если Render ответил ошибкой
-                }
-            } catch (e) {
-                showDirectButton(box, s, h); // Если Render вообще упал/забанен
-            }
-        }
-
-        function showDirectButton(box, s, h) {
-            box.innerHTML = `
-                <div style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 8px; border: 1px solid #ffeeba; margin-bottom: 10px; font-size: 0.85em;">
-                    ДТЭК блокирует сервер. Нажмите кнопку для авто-перехода:
-                </div>
-                <form action="https://www.dtek-oem.com.ua/ua/shutdowns" method="GET" target="_blank">
-                    <input type="hidden" name="query" value="${s} ${h}">
-                    <button type="submit" class="btn-direct">🚀 ПЕРЕЙТИ К ГРАФИКУ</button>
-                </form>
-            `;
+        function copyToClipboard(text, btn) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const oldText = btn.innerText;
+            btn.innerText = "✅ Одесса скопирована!";
+            setTimeout(() => { btn.innerText = oldText; }, 2000);
         }
 
         function add() {
-            const s = document.getElementById('st').value;
-            const h = document.getElementById('hs').value;
+            const s = document.getElementById('st').value.trim();
+            const h = document.getElementById('hs').value.trim();
             if(s && h) {
                 addresses.push({ s, h });
-                localStorage.setItem('dtek_multi_v4', JSON.stringify(addresses));
+                localStorage.setItem('dtek_odessa_v5', JSON.stringify(addresses));
                 render();
                 document.getElementById('st').value = '';
                 document.getElementById('hs').value = '';
@@ -89,7 +87,7 @@
 
         function remove(i) {
             addresses.splice(i, 1);
-            localStorage.setItem('dtek_multi_v4', JSON.stringify(addresses));
+            localStorage.setItem('dtek_odessa_v5', JSON.stringify(addresses));
             render();
         }
 
