@@ -5,103 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Свет (Одесса)</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .addr-title { font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
         .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; }
-        .status-box { margin-top: 10px; font-size: 0.8em; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        td, th { border: 1px solid #eee; padding: 4px; text-align: center; }
+        .btn-check { width: 100%; padding: 12px; color: white; border-radius: 8px; font-weight: bold; text-decoration: none; display: block; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h3>Добавить адрес</h3>
-        <input type="text" id="st" placeholder="Улица (Люстдорфська дорога)">
-        <input type="text" id="hs" placeholder="Дом (189)">
-        <button onclick="add()">Сохранить адрес</button>
+        <input type="text" id="streetInput" placeholder="Улица (напр. Люстдорфська)">
+        <input type="text" id="houseInput" placeholder="Дом (напр. 189)">
+        <button onclick="addAddress()">Сохранить адрес</button>
     </div>
 
     <div id="list"></div>
 
     <script>
-        let addresses = JSON.parse(localStorage.getItem('dtek_v3')) || [];
-
-        // Прокси для обхода блокировок (CORS)
-        const PROXY = "https://api.allorigins.win/get?url=";
+        // Загрузка сохраненных адресов
+        let addresses = JSON.parse(localStorage.getItem('my_dtek_list')) || [];
 
         function render() {
             const listDiv = document.getElementById('list');
             listDiv.innerHTML = addresses.map((addr, i) => `
                 <div class="card">
                     <div class="addr-title">
-                        📍 ${addr.s}, ${addr.h}
-                        <span class="delete" onclick="remove(${i})">Удалить</span>
+                        📍 ${addr.street}, ${addr.house}
+                        <span class="delete" onclick="removeAddress(${i})">Удалить</span>
                     </div>
-                    <div class="status-box" id="status-${i}">
-                        <button style="background:#28a745; margin-top:10px; width:100%;" onclick="check(${i}, '${addr.s}', '${addr.h}')">Проверить свет</button>
+                    <div id="res-${i}" style="margin-top:10px;">
+                        <button class="btn-check" style="background: #28a745; border:none;" onclick="checkData(${i}, '${addr.street}', '${addr.house}')">
+                            ПРОВЕРИТЬ СТАТУС
+                        </button>
                     </div>
                 </div>
             `).join('');
         }
 
-        function add() {
-            const s = document.getElementById('st').value;
-            const h = document.getElementById('hs').value;
-            if(s && h) {
-                addresses.push({ s, h });
-                localStorage.setItem('dtek_v3', JSON.stringify(addresses));
+        // Тот самый рабочий скрипт формы
+        function checkData(index, street, house) {
+            const box = document.getElementById(`res-${index}`);
+            
+            box.innerHTML = `
+                <div style="background: #eef2f7; padding: 15px; border-radius: 12px; border: 1px solid #d1d9e6;">
+                    <p style="margin: 0 0 10px 0; font-size: 0.9em; font-weight: bold;">Адрес подставлен: ${street} ${house}</p>
+                    
+                    <form action="https://www.dtek-oem.com.ua/ua/shutdowns" method="GET" target="_blank">
+                        <input type="hidden" name="query" value="${street} ${house}">
+                        <button type="submit" class="btn-check" style="background: #007bff; border: none; cursor: pointer;">
+                           🚀 ПЕРЕЙТИ К ГРАФИКУ
+                        </button>
+                    </form>
+                    
+                    <p style="font-size: 0.7em; color: #666; margin-top: 10px;">
+                        Сайт ДТЭК откроется сразу с вашим адресом. Просто нажмите на найденный результат.
+                    </p>
+                </div>
+            `;
+        }
+
+        function addAddress() {
+            const street = document.getElementById('streetInput').value.trim();
+            const house = document.getElementById('houseInput').value.trim();
+            
+            if(street && house) {
+                addresses.push({ street, house });
+                localStorage.setItem('my_dtek_list', JSON.stringify(addresses));
                 render();
-                document.getElementById('st').value = '';
-                document.getElementById('hs').value = '';
+                // Очистка полей
+                document.getElementById('streetInput').value = '';
+                document.getElementById('houseInput').value = '';
+            } else {
+                alert("Введите улицу и дом");
             }
         }
 
-        function remove(i) {
-            addresses.splice(i, 1);
-            localStorage.setItem('dtek_v3', JSON.stringify(addresses));
+        function removeAddress(index) {
+            addresses.splice(index, 1);
+            localStorage.setItem('my_dtek_list', JSON.stringify(addresses));
             render();
         }
 
-        async function check(i, street, house) {
-            const box = document.getElementById(`status-${i}`);
-            box.innerHTML = "⌛ Ищу адрес...";
-
-            try {
-                // 1. Ищем ID улицы через прокси
-                const stUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-streets?city=Одеса&query=${encodeURIComponent(street)}`;
-                const stRes = await fetch(PROXY + encodeURIComponent(stUrl));
-                const stJson = await stRes.json();
-                const streets = JSON.parse(stJson.contents);
-
-                if(!streets[0]) throw new Error("Улица не найдена");
-
-                // 2. Ищем ID дома
-                box.innerHTML = "⌛ Ищу дом...";
-                const hsUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-houses?street=${streets[0].id}&query=${encodeURIComponent(house)}`;
-                const hsRes = await fetch(PROXY + encodeURIComponent(hsUrl));
-                const hsJson = await hsRes.json();
-                const houses = JSON.parse(hsJson.contents);
-
-                if(!houses[0]) throw new Error("Дом не найден");
-
-                // 3. Получаем график
-                box.innerHTML = "⌛ Загружаю график...";
-                const scUrl = `https://www.dtek-oem.com.ua/ua/ajax/get-schedule?house=${houses[0].id}`;
-                const scRes = await fetch(PROXY + encodeURIComponent(scUrl));
-                const scJson = await scRes.json();
-                const schedule = JSON.parse(scJson.contents);
-
-                box.innerHTML = schedule.html;
-
-            } catch (e) {
-                box.innerHTML = "❌ Ошибка: " + e.message + ". Попробуйте еще раз через 10 секунд.";
-            }
-        }
-
+        // Запуск при загрузке
         render();
     </script>
 </body>
