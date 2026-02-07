@@ -5,64 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Свет (Одесса)</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; }
-        .addr-title { font-weight: bold; display: flex; justify-content: space-between; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .addr-title { font-weight: bold; font-size: 1.1em; display: flex; justify-content: space-between; }
+        .status-box { margin-top: 10px; font-size: 0.9em; color: #555; overflow-x: auto; }
         .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; }
-        .btn-check { display: block; text-align: center; text-decoration: none; background: #28a745; color: white; padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8em; }
+        td, th { border: 1px solid #eee; padding: 5px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h3>Добавить адрес</h3>
-        <input type="text" id="st" placeholder="Улица (Люстдорфська дорога)">
-        <input type="text" id="hs" placeholder="Дом (189)">
-        <button onclick="save()">Сохранить адрес</button>
+        <input type="text" id="street" placeholder="Улица (напр. Люстдорфська)">
+        <input type="text" id="house" placeholder="Дом (напр. 189)">
+        <button onclick="add()">Сохранить адрес</button>
     </div>
 
     <div id="list"></div>
 
     <script>
-        let data = JSON.parse(localStorage.getItem('dtek_simple')) || [];
+        // ТВОЯ ССЫЛКА НА RENDER
+        const API_URL = "https://dtek-odessa.onrender.com";
 
-        function show() {
-            const container = document.getElementById('list');
-            container.innerHTML = data.map((item, i) => `
+        let addresses = JSON.parse(localStorage.getItem('dtek_list')) || [];
+
+        function saveAndRender() {
+            localStorage.setItem('dtek_list', JSON.stringify(addresses));
+            render();
+        }
+
+        function add() {
+            const street = document.getElementById('street').value;
+            const house = document.getElementById('house').value;
+            if(street && house) {
+                addresses.push({ street, house });
+                saveAndRender();
+                document.getElementById('street').value = '';
+                document.getElementById('house').value = '';
+            }
+        }
+
+        function remove(index) {
+            addresses.splice(index, 1);
+            saveAndRender();
+        }
+
+        async function checkStatus(index, street, house) {
+            const container = document.getElementById(`status-${index}`);
+            container.innerHTML = "⌛ Загрузка графика...";
+            
+            try {
+                // Пытаемся вызвать твой сервер на Render
+                const res = await fetch(`${API_URL}/check?street=${encodeURIComponent(street)}&house=${encodeURIComponent(house)}`);
+                const result = await res.json();
+                
+                if(result.status === 'success') {
+                    container.innerHTML = result.html; 
+                } else {
+                    container.innerHTML = "❌ Ошибка: " + result.message;
+                }
+            } catch (e) {
+                container.innerHTML = "⚠️ Сервер на Render не отвечает или заблокирован. Проверьте логи на Render.";
+            }
+        }
+
+        function render() {
+            const listDiv = document.getElementById('list');
+            listDiv.innerHTML = addresses.map((addr, i) => `
                 <div class="card">
                     <div class="addr-title">
-                        📍 ${item.s}, ${item.h}
-                        <span class="delete" onclick="del(${i})">Удалить</span>
+                        📍 ${addr.street}, ${addr.house}
+                        <span class="delete" onclick="remove(${i})">Удалить</span>
                     </div>
-                    <a href="https://www.dtek-oem.com.ua/ua/shutdowns?query=${encodeURIComponent(item.s + ' ' + item.h)}" 
-                       target="_blank" class="btn-check">
-                       СМОТРЕТЬ ГРАФИК
-                    </a>
+                    <div class="status-box" id="status-${i}">
+                        <button style="background:#28a745; margin-top:10px;" onclick="checkStatus(${i}, '${addr.street}', '${addr.house}')">
+                            ПРОВЕРИТЬ СВЕТ
+                        </button>
+                    </div>
                 </div>
             `).join('');
         }
 
-        function save() {
-            const s = document.getElementById('st').value;
-            const h = document.getElementById('hs').value;
-            if(s && h) {
-                data.push({ s, h });
-                localStorage.setItem('dtek_simple', JSON.stringify(data));
-                show();
-                document.getElementById('st').value = '';
-                document.getElementById('hs').value = '';
-            }
-        }
-
-        function del(i) {
-            data.splice(i, 1);
-            localStorage.setItem('dtek_simple', JSON.stringify(data));
-            show();
-        }
-
-        show();
+        render();
     </script>
 </body>
 </html>
