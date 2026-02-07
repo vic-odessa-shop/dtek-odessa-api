@@ -5,77 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Свет (Одесса)</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .addr-title { font-weight: bold; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center; }
-        .status-box { margin-top: 10px; }
-        .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; font-weight: normal; }
-        .btn-check { background: #28a745; margin-top: 10px; width: 100%; display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
-        .hint { font-size: 0.8em; color: #666; margin-top: 5px; line-height: 1.4; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; }
+        .addr-title { font-weight: bold; display: flex; justify-content: space-between; }
+        .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; }
+        .btn-check { display: block; text-align: center; text-decoration: none; background: #28a745; color: white; padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h3>Добавить адрес</h3>
-        <input type="text" id="streetInput" placeholder="Улица (напр. Люстдорфська)">
-        <input type="text" id="houseInput" placeholder="Дом (напр. 189)">
-        <button onclick="addAddress()">Сохранить адрес</button>
+        <input type="text" id="st" placeholder="Улица (Люстдорфська дорога)">
+        <input type="text" id="hs" placeholder="Дом (189)">
+        <button onclick="save()">Сохранить адрес</button>
     </div>
 
-    <div id="listContainer"></div>
+    <div id="list"></div>
 
     <script>
-        // Загружаем список из памяти телефона
-        let savedAddresses = JSON.parse(localStorage.getItem('dtek_addresses_v2')) || [];
+        let data = JSON.parse(localStorage.getItem('dtek_simple')) || [];
 
-        function render() {
-            const listDiv = document.getElementById('listContainer');
-            listDiv.innerHTML = savedAddresses.map((addr, i) => `
+        function show() {
+            const container = document.getElementById('list');
+            container.innerHTML = data.map((item, i) => `
                 <div class="card">
                     <div class="addr-title">
-                        📍 ${addr.street}, ${addr.house}
-                        <span class="delete" onclick="removeAddress(${i})">Удалить</span>
+                        📍 ${item.s}, ${item.h}
+                        <span class="delete" onclick="del(${i})">Удалить</span>
                     </div>
-                    <div class="status-box">
-                        <a href="https://www.dtek-oem.com.ua/ua/shutdowns?query=${encodeURIComponent(addr.street + ' ' + addr.house)}" 
-                           target="_blank" class="btn-check" style="padding: 12px; border-radius: 8px; color: white; font-weight: bold; display: block;">
-                           ПЕРЕЙТИ К ГРАФИКУ
-                        </a>
-                        <p class="hint">Нажмите кнопку, и на сайте ДТЭК ваш адрес уже будет в строке поиска. Вам останется только нажать на него.</p>
-                    </div>
+                    <a href="https://www.dtek-oem.com.ua/ua/shutdowns?query=${encodeURIComponent(item.s + ' ' + item.h)}" 
+                       target="_blank" class="btn-check">
+                       СМОТРЕТЬ ГРАФИК
+                    </a>
                 </div>
             `).join('');
         }
 
-        function addAddress() {
-            const s = document.getElementById('streetInput').value.trim();
-            const h = document.getElementById('houseInput').value.trim();
-            
+        function save() {
+            const s = document.getElementById('st').value;
+            const h = document.getElementById('hs').value;
             if(s && h) {
-                savedAddresses.push({ street: s, house: h });
-                localStorage.setItem('dtek_addresses_v2', JSON.stringify(savedAddresses));
-                render();
-                // Очищаем поля
-                document.getElementById('streetInput').value = '';
-                document.getElementById('houseInput').value = '';
-            } else {
-                alert("Введите и улицу, и дом!");
+                data.push({ s, h });
+                localStorage.setItem('dtek_simple', JSON.stringify(data));
+                show();
+                document.getElementById('st').value = '';
+                document.getElementById('hs').value = '';
             }
         }
 
-        function removeAddress(index) {
-            if(confirm("Удалить этот адрес?")) {
-                savedAddresses.splice(index, 1);
-                localStorage.setItem('dtek_addresses_v2', JSON.stringify(savedAddresses));
-                render();
-            }
+        function del(i) {
+            data.splice(i, 1);
+            localStorage.setItem('dtek_simple', JSON.stringify(data));
+            show();
         }
 
-        // Инициализация при запуске
-        render();
+        show();
     </script>
 </body>
 </html>
