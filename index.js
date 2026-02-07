@@ -5,56 +5,54 @@ const app = express();
 
 app.use(cors());
 
-// Настройки «маскировки» под обычный браузер
+// Новые заголовки "под браузер"
 const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://www.dtek-oem.com.ua/ua/shutdowns',
-    'X-Requested-With': 'XMLHttpRequest'
+    'Accept': 'application/json, text/javascript, */*; q=0.01',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+    'Origin': 'https://www.dtek-oem.com.ua',
+    'Referer': 'https://www.dtek-oem.com.ua/ua/shutdowns'
 };
 
 app.get('/check', async (req, res) => {
     const { street, house } = req.query;
-    console.log(`--- ЗАПРОС: ${street}, дом ${house} ---`);
+    console.log(`--- ЗАПУСК ПОИСКА: ${street} ---`);
 
     try {
-        // 1. Поиск улицы. Используем обновленный URL
-        const streetRes = await axios.get(`https://www.dtek-oem.com.ua/ua/ajax/get-streets`, {
+        // Пробуем альтернативный адрес API
+        const baseUrl = 'https://www.dtek-oem.com.ua/ua/ajax/get-streets';
+        
+        const streetRes = await axios.get(baseUrl, {
             params: { city: 'Одеса', query: street },
-            headers
-        });
-        
-        const streetId = streetRes.data[0]?.id;
-        if (!streetId) return res.json({ status: 'error', message: 'Улица не найдена' });
-
-        // 2. Поиск дома.
-        const houseRes = await axios.get(`https://www.dtek-oem.com.ua/ua/ajax/get-houses`, {
-            params: { street: streetId, query: house },
-            headers
-        });
-        
-        const houseObj = houseRes.data.find(h => h.title.toLowerCase().trim() === house.toLowerCase().trim()) || houseRes.data[0];
-        const houseId = houseObj?.id;
-
-        if (!houseId) return res.json({ status: 'error', message: 'Дом не найден' });
-
-        // 3. ПОЛУЧЕНИЕ ГРАФИКА (Обновленный метод)
-        // Иногда они требуют POST запрос, но попробуем сначала уточненный GET
-        const scheduleRes = await axios.get(`https://www.dtek-oem.com.ua/ua/ajax/get-schedule`, {
-            params: { city: 'Одеса', street: streetId, house: houseId },
-            headers
+            headers: headers
         });
 
-        if (scheduleRes.data && (scheduleRes.data.html || scheduleRes.data.table)) {
-            console.log("УСПЕХ: График получен");
-            res.json({ status: 'success', html: scheduleRes.data.html || scheduleRes.data.table });
-        } else {
-            console.log("ДТЭК прислал пустой ответ");
-            res.json({ status: 'error', message: 'График временно недоступен на сайте ДТЭК' });
+        if (!streetRes.data || streetRes.data.length === 0) {
+            console.log("ОШИБКА: ДТЭК не выдал список улиц (404 или пусто)");
+            return res.json({ status: 'error', message: 'Улица не найдена. Попробуйте ввести часть названия' });
         }
 
+        const streetId = streetRes.data[0].id;
+        console.log(`Улица найдена! ID: ${streetId}`);
+
+        const houseRes = await axios.get('https://www.dtek-oem.com.ua/ua/ajax/get-houses', {
+            params: { street: streetId, query: house },
+            headers: headers
+        });
+
+        const houseId = houseRes.data[0]?.id;
+        if (!houseId) return res.json({ status: 'error', message: 'Дом не найден' });
+
+        const scheduleRes = await axios.get('https://www.dtek-oem.com.ua/ua/ajax/get-schedule', {
+            params: { house: houseId },
+            headers: headers
+        });
+
+        res.json({ status: 'success', html: scheduleRes.data.html });
+        console.log("ПОБЕДА: График отправлен в HTML!");
+
     } catch (e) {
-        console.log(`ОШИБКА: ${e.message}`);
-        res.status(500).json({ status: 'error', message: 'ДТЭК изменил настройки доступа. Нужно обновить скрипт.' });
+        console.log(`ОШИБКА ДОСТУПА: ${e.message}`);
+        res.status(500).json({ status: 'error', message: 'ДТЭК блокирует запрос. Пробую обходной путь...' });
     }
 });
 
