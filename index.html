@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Свет (Одесса)</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; }
+        .addr-title { font-weight: bold; font-size: 1.1em; display: flex; justify-content: space-between; }
+        .status-box { margin-top: 10px; font-size: 0.9em; color: #555; overflow-x: auto; }
+        .delete { color: #ff4d4d; cursor: pointer; font-size: 0.8em; }
+        /* Стили для таблицы ДТЭК, которая придет в ответе */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        td, th { border: 1px solid #eee; padding: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h3>Добавить адрес</h3>
+        <input type="text" id="street" placeholder="Улица (напр. Маразліївська)">
+        <input type="text" id="house" placeholder="Дом (напр. 1а)">
+        <button onclick="add()">Добавить в список</button>
+    </div>
+
+    <div id="list"></div>
+
+    <script>
+        // ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ОТ RENDER!
+        const API_URL = "https://dtek-odessa.onrender.com";
+
+        let addresses = JSON.parse(localStorage.getItem('dtek_list')) || [];
+
+        function saveAndRender() {
+            localStorage.setItem('dtek_list', JSON.stringify(addresses));
+            render();
+        }
+
+        function add() {
+            const street = document.getElementById('street').value;
+            const house = document.getElementById('house').value;
+            if(street && house) {
+                addresses.push({ street, house });
+                saveAndRender();
+            }
+        }
+
+        function remove(index) {
+            addresses.splice(index, 1);
+            saveAndRender();
+        }
+
+        async function checkStatus(index, street, house) {
+            const container = document.getElementById(`status-${index}`);
+            container.innerHTML = "⌛ Загрузка...";
+            
+            try {
+                const res = await fetch(`${API_URL}/check?street=${encodeURIComponent(street)}&house=${encodeURIComponent(house)}`);
+                const result = await res.json();
+                
+                if(result.status === 'success') {
+                    container.innerHTML = result.html; 
+                } else {
+                    container.innerHTML = "❌ " + result.message;
+                }
+            } catch (e) {
+                container.innerHTML = "😴 Сервер спит. Подождите 30 сек...";
+            }
+        }
+
+        function render() {
+            const listDiv = document.getElementById('list');
+            listDiv.innerHTML = addresses.map((addr, i) => `
+                <div class="card">
+                    <div class="addr-title">
+                        ${addr.street}, ${addr.house}
+                        <span class="delete" onclick="remove(${i})">Удалить</span>
+                    </div>
+                    <div class="status-box" id="status-${i}">
+                        <button style="background:#28a745; margin-top:10px;" onclick="checkStatus(${i}, '${addr.street}', '${addr.house}')">Проверить свет</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        render();
+    </script>
+</body>
+</html>
